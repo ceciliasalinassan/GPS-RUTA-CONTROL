@@ -14,3 +14,5 @@ Se agregó descarga de informe Excel con hojas: Resumen, Pagos, Ingresos, Egreso
 Carga masiva acepta columna RAZON SOCIAL / RAZÓN SOCIAL.
 
 Recordatorio actualizado: exige factura adjunta antes de enviar y usa texto solicitado por GPS-RUTA.
+
+Facturas por cobrar: permite adjuntar factura y usa mensaje: BUENOS DIAS ESTIMADOS, SE ADJUNTA FACTURA DEL MES. SALUDOS CORDIALES. GPSRUTA.
