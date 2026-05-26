@@ -125,3 +125,53 @@
   .chart,.chart.compact,.chart.donut{height:220px !important}
   .summaryGrid{grid-template-columns:1fr !important}
 }
+
+
+.excelImportBox{
+  border:1px dashed rgba(124,252,0,.42);
+  background:rgba(124,252,0,.07);
+  border-radius:14px;
+  padding:12px;
+  margin:10px 0 14px;
+}
+.excelBtn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border-radius:12px;
+  background:#7CFC00;
+  color:#000;
+  font-weight:bold;
+  padding:10px 13px;
+  cursor:pointer;
+}
+.excelBtn input{display:none}
+.excelImportBox small{
+  display:block;
+  margin-top:8px;
+  color:#b7c7d6;
+  line-height:1.35;
+}
+
+
+.reportBtn{
+  border-color:rgba(255,212,59,.45)!important;
+  background:rgba(255,212,59,.12)!important;
+  color:#FFD43B!important;
+}
+
+
+.requiredAttach{
+  display:block;
+  margin-top:8px;
+  color:#FFD43B;
+  font-weight:bold;
+}
+.send.disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  filter:grayscale(.4);
+}
+.fileBox{
+  border-color:rgba(124,252,0,.45)!important;
+}

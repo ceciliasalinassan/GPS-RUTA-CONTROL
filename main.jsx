@@ -3,6 +3,7 @@ import React,{useEffect,useMemo,useState}from"react";
 import{createRoot}from"react-dom/client";
 import{AlertTriangle,Bell,CalendarDays,CheckCircle,Clock,CreditCard,Edit,Eye,FileText,Lock,LogOut,Mail,Paperclip,Plus,Search,ShieldCheck,Trash2,TrendingDown,TrendingUp,UploadCloud,User,Users,Wallet,Save,Building2,Download,Upload,HardDrive}from"lucide-react";
 import{BarChart,Bar,XAxis,YAxis,Tooltip,ResponsiveContainer,CartesianGrid,PieChart,Pie,Cell}from"recharts";
+import * as XLSX from "xlsx";
 import"./style.css";
 
 const KEY="gpsruta_financiero_pro_v2";
@@ -29,8 +30,8 @@ const ml=k=>{let[a,b]=k.split("-");return `${b}/${a}`};
 function load(){try{let s=JSON.parse(localStorage.getItem(KEY));if(!s)return seed;return{...seed,...s,clients:(s.clients||seed.clients).map(c=>({giro:"",...c})),incomes:s.incomes||seed.incomes,expenses:s.expenses||seed.expenses,debts:s.debts||seed.debts}}catch{return seed}}
 function days(d){let n=new Date();n.setHours(0,0,0,0);return Math.ceil((new Date(d+"T00:00:00")-n)/86400000)}
 function ist(i){if(i.estado==="Pagada")return{l:"Pagada",c:"ok",I:CheckCircle};let d=days(i.vencimiento);if(i.estado==="Vencida"||d<0)return{l:"Vencida",c:"bad",I:AlertTriangle};if(d<=3&&d>=0)return{l:"Por vencer",c:"warn",I:Clock};return{l:"Pendiente",c:"soft",I:FileText}}
-function wa(i,c){let d=days(i.vencimiento),av=d===3?"FALTAN 3 DÍAS":d===0?"vence HOY":d<0?"está VENCIDA":`vence en ${d} días`;let t=`Hola ${c?.nombre||"cliente"}, recordamos factura ${i.factura} por ${money(i.monto)}: ${av}. Vencimiento: ${i.vencimiento}. GPSruta.cl`;return`https://wa.me/${c?.telefono||""}?text=${encodeURIComponent(t)}`}
-function em(i,c){let s=`Recordatorio de cobro - Factura ${i.factura}`,b=`Estimado/a ${c?.nombre||"cliente"}:\n\nRecordamos la factura ${i.factura} por ${money(i.monto)}.\nFecha de vencimiento: ${i.vencimiento}\n\nFavor confirmar pago.\n\nGPSruta.cl`;return`mailto:${c?.email||""}?subject=${encodeURIComponent(s)}&body=${encodeURIComponent(b)}`}
+function wa(i,c){let t=`Se recuerda el pago de factura por vencida.\n\nFactura: ${i.factura}\nMonto: ${money(i.monto)}\nVencimiento: ${i.vencimiento}\n\nSaludos cordiales GPS-RUTA.`;return`https://wa.me/${c?.telefono||""}?text=${encodeURIComponent(t)}`}
+function em(i,c){let s=`Recordatorio pago factura vencida - ${i.factura}`,b=`Se recuerda el pago de factura por vencida.\n\nFactura: ${i.factura}\nMonto: ${money(i.monto)}\nVencimiento: ${i.vencimiento}\n\nSaludos cordiales GPS-RUTA.\n\nNota: adjuntar factura antes de enviar.`;return`mailto:${c?.email||""}?subject=${encodeURIComponent(s)}&body=${encodeURIComponent(b)}`}
 function W(){return <svg viewBox="0 0 32 32" width="18" height="18"><path fill="currentColor" d="M16.04 3C8.86 3 3 8.84 3 16.02c0 2.3.6 4.54 1.75 6.51L3 29l6.64-1.7a12.95 12.95 0 0 0 6.4 1.64h.01C23.22 28.94 29 23.1 29 15.92 29 8.8 23.18 3 16.04 3Zm7.56 18.45c-.32.9-1.86 1.7-2.6 1.8-.67.1-1.52.14-2.45-.15-.56-.18-1.28-.42-2.2-.82-3.87-1.68-6.4-5.6-6.6-5.86-.2-.26-1.58-2.1-1.58-4s1-2.84 1.35-3.23c.36-.4.78-.5 1.04-.5h.75c.24.01.57-.09.9.69.32.78 1.1 2.69 1.2 2.89.1.2.16.43.03.69-.13.26-.2.42-.4.64-.2.23-.42.5-.6.67-.2.2-.4.42-.17.82.23.4 1.02 1.68 2.2 2.72 1.51 1.35 2.78 1.77 3.18 1.97.4.2.63.17.86-.1.23-.26 1-1.16 1.26-1.56.26-.4.53-.33.9-.2.36.13 2.3 1.08 2.7 1.28.4.2.66.3.76.46.1.16.1.95-.22 1.85Z"/></svg>}
 function Logo(){return <div className="logo"><div className="pin">⌖</div><div><h1><span>GPS</span><b>ruta</b><small>.cl</small></h1><p>SEGUIMIENTO Y SEGURIDAD</p></div></div>}
 function Login({onLogin}){const[p,setP]=useState(""),[e,setE]=useState("");return <div className="loginPage"><form className="loginCard" onSubmit={x=>{x.preventDefault();if(p===PASS){sessionStorage.setItem(SESSION,"1");onLogin()}else setE("Clave incorrecta. Clave demo: 1234")}}><Logo/><h2>Ingreso Seguro</h2><p>Sistema financiero y cobranza</p><div className="loginInput"><Lock size={18}/><input type="password" value={p} onChange={x=>setP(x.target.value)} placeholder="Clave de acceso"/></div>{e&&<div className="error">{e}</div>}<button className="primary full"><ShieldCheck size={18}/>Ingresar</button></form></div>}
@@ -59,6 +60,14 @@ function saveIncome(){if(!incomeForm.categoria||!incomeForm.monto)return;let inv
 function saveExpense(){if(!expenseForm.categoria||!expenseForm.monto)return;setData({...data,expenses:[{...expenseForm,id:Date.now(),monto:+expenseForm.monto},...data.expenses]});setExpenseForm({fecha:today(),categoria:"Pago instalador",descripcion:"",monto:""})}
 function saveDebt(){if(!debtForm.proveedor||!debtForm.monto)return;setData({...data,debts:[{...debtForm,id:Date.now(),monto:+debtForm.monto},...data.debts]});setDebtForm({fecha:today(),proveedor:"",categoria:"Compra de equipos",descripcion:"",monto:"",vencimiento:today(),estado:"Pendiente"})}
 function attachFile(id,file){if(!file)return;let r=new FileReader();r.onload=()=>setData({...data,attachments:{...(data.attachments||{}),[id]:{name:file.name,size:file.size,type:file.type,dataUrl:r.result,attachedAt:new Date().toLocaleString("es-CL")}}});r.readAsDataURL(file)}
+function canSendReminder(id){
+  if(!data.attachments?.[id]){
+    alert("Debe adjuntar la factura antes de enviar el recordatorio.");
+    return false;
+  }
+  return true;
+}
+
 
 function manualSave(){
   localStorage.setItem(KEY, JSON.stringify(data));
@@ -102,24 +111,184 @@ function deleteAllHistory(kind){
   if(kind==="expenses") setData({...data, expenses:[]});
   if(kind==="invoices") setData({...data, invoices:[]});
 }
+
+function importClientsExcel(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      const workbook = XLSX.read(new Uint8Array(e.target.result), {type:"array"});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {defval:""});
+      if(!rows.length){
+        alert("El Excel no tiene datos.");
+        return;
+      }
+      const normalize = (row, keys) => {
+        for(const k of keys){
+          const found = Object.keys(row).find(x => x.toLowerCase().trim() === k.toLowerCase());
+          if(found) return String(row[found] || "").trim();
+        }
+        return "";
+      };
+      const nuevos = rows.map((r,idx)=>({
+        id: Date.now()+idx,
+        nombre: normalize(r,["nombre","cliente","razon social","razón social","RAZON SOCIAL","RAZÓN SOCIAL","empresa"]),
+        rut: normalize(r,["rut","r.u.t","rut cliente"]),
+        giro: normalize(r,["giro","actividad","actividad economica","actividad económica"]),
+        telefono: normalize(r,["telefono","teléfono","celular","whatsapp"]),
+        email: normalize(r,["email","correo","correo electronico","correo electrónico"]),
+        direccion: normalize(r,["direccion","dirección","domicilio"]),
+        contacto: normalize(r,["contacto","persona contacto","encargado"])
+      })).filter(c=>c.nombre || c.rut);
+      if(!nuevos.length){
+        alert("No se encontraron clientes válidos. Revisa que el Excel tenga columnas: nombre, rut, giro, telefono, email, direccion, contacto.");
+        return;
+      }
+      setData({...data, clients:[...nuevos, ...data.clients]});
+      alert("Clientes cargados correctamente: "+nuevos.length);
+    }catch(err){
+      alert("No se pudo leer el Excel. Revisa el formato del archivo.");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function exportFinancialReport(){
+  const clienteNombre = (id) => client(id)?.nombre || "";
+  const clienteRut = (id) => client(id)?.rut || "";
+  const workbook = XLSX.utils.book_new();
+
+  const resumen = [{
+    "Mes/Año": ml(selectedMonth),
+    "Ingresos": stats.ingresos,
+    "Egresos": stats.egresos,
+    "Saldo Neto": stats.saldo,
+    "Deudas por pagar": stats.deudas,
+    "Facturas pendientes por cobrar": stats.pend,
+    "Facturas vencidas": stats.venc.length,
+    "Fecha descarga": new Date().toLocaleString("es-CL")
+  }];
+
+  const pagos = data.incomes
+    .filter(i => i.categoria === "Pago de factura" || i.facturaId)
+    .map(i => {
+      const inv = data.invoices.find(f => Number(f.id) === Number(i.facturaId));
+      return {
+        "Fecha Pago": i.fecha,
+        "Mes/Año": ml(mk(i.fecha)),
+        "Factura": inv?.factura || i.descripcion || "",
+        "Cliente": inv ? clienteNombre(inv.clienteId) : "",
+        "RUT": inv ? clienteRut(inv.clienteId) : "",
+        "Categoría": i.categoria,
+        "Descripción": i.descripcion,
+        "Monto": Number(i.monto || 0)
+      };
+    });
+
+  const ingresos = data.incomes.map(i => ({
+    "Fecha": i.fecha,
+    "Mes/Año": ml(mk(i.fecha)),
+    "Categoría": i.categoria,
+    "Descripción": i.descripcion,
+    "Factura Asociada": data.invoices.find(f => Number(f.id) === Number(i.facturaId))?.factura || "",
+    "Monto": Number(i.monto || 0)
+  }));
+
+  const egresos = data.expenses.map(e => ({
+    "Fecha": e.fecha,
+    "Mes/Año": ml(mk(e.fecha)),
+    "Categoría": e.categoria,
+    "Descripción": e.descripcion,
+    "Monto": Number(e.monto || 0)
+  }));
+
+  const deudas = data.debts.map(d => ({
+    "Fecha Registro": d.fecha,
+    "Proveedor": d.proveedor,
+    "Categoría": d.categoria,
+    "Descripción": d.descripcion,
+    "Vencimiento": d.vencimiento,
+    "Mes/Año": ml(mk(d.vencimiento)),
+    "Estado": d.estado,
+    "Monto": Number(d.monto || 0)
+  }));
+
+  const facturasPorPagar = data.debts.filter(d => d.estado !== "Pagada").map(d => ({
+    "Proveedor": d.proveedor,
+    "Categoría": d.categoria,
+    "Descripción": d.descripcion,
+    "Vencimiento": d.vencimiento,
+    "Mes/Año": ml(mk(d.vencimiento)),
+    "Estado": d.estado,
+    "Monto": Number(d.monto || 0)
+  }));
+
+  const facturasPorCobrar = data.invoices.map(f => ({
+    "Factura": f.factura,
+    "Cliente": clienteNombre(f.clienteId),
+    "RUT Cliente": clienteRut(f.clienteId),
+    "Emisión": f.emision,
+    "Vencimiento": f.vencimiento,
+    "Mes/Año": ml(mk(f.vencimiento)),
+    "Estado": ist(f).l,
+    "Detalle": f.detalle,
+    "Monto": Number(f.monto || 0)
+  }));
+
+  const clientes = data.clients.map(c => ({
+    "Nombre / Razón Social": c.nombre,
+    "RUT": c.rut,
+    "Giro": c.giro,
+    "Teléfono": c.telefono,
+    "Email": c.email,
+    "Dirección": c.direccion,
+    "Contacto": c.contacto
+  }));
+
+  const sheets = [
+    ["Resumen", resumen],
+    ["Pagos", pagos],
+    ["Ingresos", ingresos],
+    ["Egresos", egresos],
+    ["Deudas", deudas],
+    ["Facturas por pagar", facturasPorPagar],
+    ["Facturas por cobrar", facturasPorCobrar],
+    ["Clientes", clientes]
+  ];
+
+  sheets.forEach(([name, rows]) => {
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
+    XLSX.utils.book_append_sheet(workbook, ws, name);
+  });
+
+  XLSX.writeFile(workbook, "informe_gpsruta_"+selectedMonth+".xlsx");
+}
 if(!logged)return <Login onLogin={()=>setLogged(true)}/>;
 return <div className="app"><aside><Logo/><div className="admin"><User size={24}/><div><b>Administrador</b><p>admin@gpsruta.cl</p></div></div><nav>{[["dashboard","Dashboard",Eye],["clientes","Clientes",Users],["facturas","Facturas por cobrar",FileText],["deudas","Deudas / Facturas por pagar",CreditCard],["ingresos","Ingresos",TrendingUp],["egresos","Egresos",TrendingDown],["alertas","Cobros / Recordatorios",Bell]].map(([v,l,I])=><button key={v} onClick={()=>setTab(v)} className={tab===v?"active":""}><I size={20}/>{l}</button>)}</nav><div className="autosave"><CheckCircle size={20}/><div><b>Guardado automático activo</b><p>Último guardado: {saved}</p></div></div><button className="logout" onClick={()=>{sessionStorage.removeItem(SESSION);setLogged(false)}}><LogOut size={19}/>Cerrar sesión</button></aside><main><header><div className="search"><Search size={17}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar cliente, factura o giro..."/></div><div className="chips"><select value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="monthSelect">{months.map(m=><option key={m} value={m}>{ml(m)}</option>)}</select><span><CalendarDays size={17}/>{clock.toLocaleDateString("es-CL")}</span><span><Clock size={17}/>{clock.toLocaleTimeString("es-CL")}</span><span className="green"><Save size={17}/>Guardado automático</span></div></header>
 <section className="backupToolbar">
   <button className="backupBtn saveManual" onClick={manualSave}><HardDrive size={17}/>Guardar ahora</button>
   <button className="backupBtn" onClick={exportBackup}><Download size={17}/>Respaldar</button>
-  <label className="backupBtn importBtn"><Upload size={17}/>Importar respaldo<input type="file" accept=".json" onChange={e=>importBackup(e.target.files?.[0])}/></label>
+  <label className="backupBtn importBtn"><Upload size={17}/>Importar respaldo<input type="file" accept=".json" onChange={e=>importBackup(e.target.files?.[0])}/></label><button className="backupBtn reportBtn" onClick={exportFinancialReport}>📊 Descargar informe Excel</button>
 </section>
 <section className="kpis"><K t="Ingresos del mes" v={money(stats.ingresos)} s={ml(selectedMonth)} icon={TrendingUp}/><K t="Egresos del mes" v={money(stats.egresos)} s={ml(selectedMonth)} icon={TrendingDown} tone="red"/><K t="Deudas por pagar" v={money(stats.deudas)} s="Según vencimiento" icon={CreditCard} tone="gold"/><K t="Facturas pendientes" v={money(stats.pend)} s="Por cobrar" icon={FileText} tone="blue"/><K t="Facturas vencidas" v={stats.venc.length} s="Cantidad mensual" icon={AlertTriangle} tone="red"/></section>
 {tab==="dashboard"&&<section className="gridDash"><div className="card chartPro wide"><h2>Resumen mensual financiero</h2><div className="chart compact"><ResponsiveContainer><BarChart data={monthly}><CartesianGrid stroke="rgba(255,255,255,.08)"/><XAxis dataKey="mes" stroke="#ccc"/><YAxis stroke="#ccc" tickFormatter={v=>`${Math.round(v/1000000)}M`}/><Tooltip formatter={v=>money(v)} contentStyle={{background:"#050505",border:"1px solid #00a3ff"}}/><Bar dataKey="ingresos" fill="#7CFC00" radius={[6,6,0,0]} barSize={18}/>
 <Bar dataKey="egresos" fill="#ff3131" radius={[6,6,0,0]} barSize={18}/>
 <Bar dataKey="deudas" fill="#FFD43B" radius={[6,6,0,0]} barSize={18}/>
 <Bar dataKey="vencidas" fill="#ff9500" radius={[6,6,0,0]} barSize={18}/></BarChart></ResponsiveContainer></div></div><div className="card chartPro"><h2>Estado facturas del mes</h2><div className="chart donut"><ResponsiveContainer><PieChart><Pie data={pie} dataKey="value" nameKey="name" innerRadius={42} outerRadius={72}>{pie.map((_,i)=><Cell key={i} fill={["#7CFC00","#FFD43B","#ff9500","#ff3131"][i]}/>)}</Pie><Tooltip contentStyle={{background:"#050505",border:"1px solid #00a3ff"}}/></PieChart></ResponsiveContainer></div></div><div className="card wide"><h2>Resumen del mes seleccionado</h2><div className="summaryGrid">{[[money(stats.ingresos),"Ingresos"],[money(stats.egresos),"Egresos"],[money(stats.saldo),"Saldo neto"],[money(stats.deudas),"Deudas por pagar"],[money(stats.pend),"Facturas por cobrar"],[stats.venc.length,"Facturas vencidas"]].map(([a,b])=><div key={b}><b>{a}</b><span>{b}</span></div>)}</div></div></section>}
-{tab==="clientes"&&<section className="two"><div className="card"><h2>{editingClient?"Editar cliente":"Nuevo cliente"}</h2><Fields obj={clientForm} set={setClientForm} fields={["nombre","rut","giro","telefono","email","direccion","contacto"]}/><button className="primary" onClick={saveClient}><Plus size={17}/>Guardar cliente</button></div><div className="cards">{filteredClients.map(c=><div className="card client" key={c.id}><div className="clientIcon"><Building2 size={34}/></div><div><h3>{c.nombre}</h3><p>RUT: {c.rut}</p><p>Giro: {c.giro||"Sin giro registrado"}</p><p>{c.email}</p><div className="actions"><button className="icon edit" onClick={()=>editClient(c)}><Edit size={17}/></button><button className="icon trash" onClick={()=>setData({...data,clients:data.clients.filter(x=>x.id!==c.id),invoices:data.invoices.filter(i=>+i.clienteId!==+c.id)})}><Trash2 size={17}/></button></div></div></div>)}</div></section>}
+{tab==="clientes"&&<section className="two"><div className="card"><h2>{editingClient?"Editar cliente":"Nuevo cliente"}</h2>
+<div className="excelImportBox">
+  <label className="excelBtn">📥 Cargar clientes desde Excel
+    <input type="file" accept=".xlsx,.xls,.csv" onChange={e=>importClientsExcel(e.target.files?.[0])}/>
+  </label>
+  <small>Columnas aceptadas: nombre, RAZON SOCIAL, rut, giro, telefono, email, direccion, contacto.</small>
+</div>
+<Fields obj={clientForm} set={setClientForm} fields={["nombre","rut","giro","telefono","email","direccion","contacto"]}/><button className="primary" onClick={saveClient}><Plus size={17}/>Guardar cliente</button></div><div className="cards">{filteredClients.map(c=><div className="card client" key={c.id}><div className="clientIcon"><Building2 size={34}/></div><div><h3>{c.nombre}</h3><p>RUT: {c.rut}</p><p>Giro: {c.giro||"Sin giro registrado"}</p><p>{c.email}</p><div className="actions"><button className="icon edit" onClick={()=>editClient(c)}><Edit size={17}/></button><button className="icon trash" onClick={()=>setData({...data,clients:data.clients.filter(x=>x.id!==c.id),invoices:data.invoices.filter(i=>+i.clienteId!==+c.id)})}><Trash2 size={17}/></button></div></div></div>)}</div></section>}
 {tab==="facturas"&&<section className="two"><div className="card"><h2>{editingInvoice?"Editar factura":"Nueva factura por cobrar"}</h2><select value={invoiceForm.clienteId} onChange={e=>setInvoiceForm({...invoiceForm,clienteId:e.target.value})}><option value="">Seleccionar cliente</option>{data.clients.map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select><Fields obj={invoiceForm} set={setInvoiceForm} fields={["factura","emision","vencimiento","monto","detalle"]}/><select value={invoiceForm.estado} onChange={e=>setInvoiceForm({...invoiceForm,estado:e.target.value})}><option>Pendiente</option><option>Vencida</option><option>Pagada</option></select><button className="primary" onClick={saveInvoice}><Plus size={17}/>Guardar factura</button></div><div className="card"><InvTable items={filteredInvoices} client={client} edit={editInvoice} del={id=>setData({...data,invoices:data.invoices.filter(i=>i.id!==id)})}/></div></section>}
 {tab==="deudas"&&<section className="two"><div className="card"><h2>Deudas / Facturas por pagar</h2><Fields obj={debtForm} set={setDebtForm} fields={["fecha","proveedor","descripcion","monto","vencimiento"]}/><select value={debtForm.categoria} onChange={e=>setDebtForm({...debtForm,categoria:e.target.value})}>{expenseCats.map(c=><option key={c}>{c}</option>)}</select><select value={debtForm.estado} onChange={e=>setDebtForm({...debtForm,estado:e.target.value})}><option>Pendiente</option><option>Pagada</option></select><button className="primary gold" onClick={saveDebt}><Plus size={17}/>Guardar deuda</button></div><div className="card"><div className="historyHead"><h2>Historial de deudas por mes/año</h2><div><button className="smallDanger" onClick={()=>deleteMonthHistory("debts")}>Eliminar mes/año</button><button className="smallDanger ghost" onClick={()=>deleteAllHistory("debts")}>Eliminar todo</button></div></div><Table rows={data.debts} type="debts" setData={setData} data={data}/></div></section>}
 {tab==="ingresos"&&<section className="two"><div className="card"><h2>Ingresar ingreso</h2><Fields obj={incomeForm} set={setIncomeForm} fields={["fecha","descripcion","monto"]}/><select value={incomeForm.categoria} onChange={e=>setIncomeForm({...incomeForm,categoria:e.target.value})}>{incomeCats.map(c=><option key={c}>{c}</option>)}</select><select value={incomeForm.facturaId} onChange={e=>{let inv=data.invoices.find(i=>+i.id===+e.target.value);setIncomeForm({...incomeForm,facturaId:e.target.value,monto:inv?inv.monto:incomeForm.monto,descripcion:inv?`Pago ${inv.factura}`:incomeForm.descripcion})}}><option value="">Sin asociar factura</option>{data.invoices.filter(i=>ist(i).l!=="Pagada").map(i=><option key={i.id} value={i.id}>{i.factura} · {client(i.clienteId)?.nombre} · {money(i.monto)}</option>)}</select><button className="primary" onClick={saveIncome}><Plus size={17}/>Guardar ingreso</button></div><div className="card"><div className="historyHead"><h2>Historial de ingresos por fecha</h2><div><button className="smallDanger" onClick={()=>deleteMonthHistory("incomes")}>Eliminar mes/año</button><button className="smallDanger ghost" onClick={()=>deleteAllHistory("incomes")}>Eliminar todo</button></div></div><Table rows={data.incomes} type="incomes" setData={setData} data={data}/></div></section>}
 {tab==="egresos"&&<section className="two"><div className="card"><h2>Ingresar egreso</h2><Fields obj={expenseForm} set={setExpenseForm} fields={["fecha","descripcion","monto"]}/><select value={expenseForm.categoria} onChange={e=>setExpenseForm({...expenseForm,categoria:e.target.value})}>{expenseCats.map(c=><option key={c}>{c}</option>)}</select><button className="primary gold" onClick={saveExpense}><Plus size={17}/>Guardar egreso</button></div><div className="card"><div className="historyHead"><h2>Historial de egresos por fecha</h2><div><button className="smallDanger" onClick={()=>deleteMonthHistory("expenses")}>Eliminar mes/año</button><button className="smallDanger ghost" onClick={()=>deleteAllHistory("expenses")}>Eliminar todo</button></div></div><Table rows={data.expenses} type="expenses" setData={setData} data={data}/></div></section>}
-{tab==="alertas"&&<section className="alerts"><div className="card reminders"><h2><Bell size={20}/>Cobros / Recordatorios</h2><div className="search inner"><Search size={17}/><input value={alertSearch} onChange={e=>setAlertSearch(e.target.value)} placeholder="Buscar factura..."/></div><div className="reminderList">{alertInvoices.map(inv=>{let c=client(inv.clienteId),s=ist(inv),Icon=s.I;return <button key={inv.id} className={`reminder ${selectedInvoice?.id===inv.id?"selected":""}`} onClick={()=>setSelectedInvoiceId(inv.id)}><Icon className={s.c} size={24}/><div><b>{inv.factura}</b><p>{c?.nombre}</p><small>{inv.vencimiento} · {money(inv.monto)}</small></div></button>})}</div></div><div className="card attach"><h2><Paperclip size={20}/>Adjuntar factura</h2>{selectedInvoice?<><div className="selected"><b>{selectedInvoice.factura}</b><p>{selectedClient?.nombre} · {money(selectedInvoice.monto)}</p></div><label className="drop"><UploadCloud size={32}/><b>Buscar factura en mi PC</b><small>PDF, JPG, PNG, DOCX, XLSX</small><input type="file" onChange={e=>attachFile(selectedInvoice.id,e.target.files?.[0])}/></label>{data.attachments?.[selectedInvoice.id]&&<div className="fileBox"><FileText size={22}/><div><b>{data.attachments[selectedInvoice.id].name}</b><p>{(data.attachments[selectedInvoice.id].size/1024/1024).toFixed(2)} MB</p></div></div>}<div className="actions big"><a className="send whatsapp" href={wa(selectedInvoice,selectedClient)} target="_blank"><W/>WhatsApp</a><a className="send mail" href={em(selectedInvoice,selectedClient)}><Mail size={18}/>Correo</a></div></>:<p>No hay facturas por cobrar.</p>}</div></section>}
+{tab==="alertas"&&<section className="alerts"><div className="card reminders"><h2><Bell size={20}/>Cobros / Recordatorios</h2><div className="search inner"><Search size={17}/><input value={alertSearch} onChange={e=>setAlertSearch(e.target.value)} placeholder="Buscar factura..."/></div><div className="reminderList">{alertInvoices.map(inv=>{let c=client(inv.clienteId),s=ist(inv),Icon=s.I;return <button key={inv.id} className={`reminder ${selectedInvoice?.id===inv.id?"selected":""}`} onClick={()=>setSelectedInvoiceId(inv.id)}><Icon className={s.c} size={24}/><div><b>{inv.factura}</b><p>{c?.nombre}</p><small>{inv.vencimiento} · {money(inv.monto)}</small></div></button>})}</div></div><div className="card attach"><h2><Paperclip size={20}/>Adjuntar factura</h2>{selectedInvoice?<><div className="selected"><b>{selectedInvoice.factura}</b><p>{selectedClient?.nombre} · {money(selectedInvoice.monto)}</p><small className="requiredAttach">Para enviar recordatorio, primero debe adjuntar la factura.</small></div><label className="drop"><UploadCloud size={32}/><b>Buscar factura en mi PC</b><small>PDF, JPG, PNG, DOCX, XLSX</small><input type="file" onChange={e=>attachFile(selectedInvoice.id,e.target.files?.[0])}/></label>{data.attachments?.[selectedInvoice.id]&&<div className="fileBox"><FileText size={22}/><div><b>{data.attachments[selectedInvoice.id].name}</b><p>{(data.attachments[selectedInvoice.id].size/1024/1024).toFixed(2)} MB</p></div></div>}<div className="actions big"><a className={`send whatsapp ${!data.attachments?.[selectedInvoice.id]?"disabled":""}`} href={data.attachments?.[selectedInvoice.id]?wa(selectedInvoice,selectedClient):"#"} onClick={(e)=>{if(!canSendReminder(selectedInvoice.id))e.preventDefault()}} target="_blank"><W/>WhatsApp</a><a className={`send mail ${!data.attachments?.[selectedInvoice.id]?"disabled":""}`} href={data.attachments?.[selectedInvoice.id]?em(selectedInvoice,selectedClient):"#"} onClick={(e)=>{if(!canSendReminder(selectedInvoice.id))e.preventDefault()}}><Mail size={18}/>Correo</a></div></>:<p>No hay facturas por cobrar.</p>}</div></section>}
 </main></div>}
 function Table({rows,type,setData,data}){let sorted=[...rows].sort((a,b)=>(b.fecha||b.vencimiento).localeCompare(a.fecha||a.vencimiento));return <div className="tableWrap"><table><thead><tr><th>Fecha</th><th>Mes/Año</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th></th></tr></thead><tbody>{sorted.map(r=><tr key={r.id}><td>{r.fecha||r.vencimiento}</td><td>{ml(mk(r.fecha||r.vencimiento))}</td><td>{r.categoria}{r.proveedor&&<small>{r.proveedor}</small>}</td><td>{r.descripcion}{r.estado&&<small>Estado: {r.estado}</small>}</td><td>{money(r.monto)}</td><td><button className="icon trash" onClick={()=>setData({...data,[type]:(data[type]||[]).filter(x=>x.id!==r.id)})}><Trash2 size={17}/></button></td></tr>)}</tbody></table></div>}
 createRoot(document.getElementById("root")).render(<App/>);
