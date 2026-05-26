@@ -175,3 +175,24 @@
 .fileBox{
   border-color:rgba(124,252,0,.45)!important;
 }
+
+
+.attachMini{
+  color:#FFD43B!important;
+  border-color:rgba(255,212,59,.45)!important;
+}
+.attachMini input{display:none}
+.attachedOk{
+  display:inline-flex;
+  align-items:center;
+  height:28px;
+  padding:0 8px;
+  border-radius:999px;
+  background:rgba(124,252,0,.12);
+  color:#7CFC00;
+  border:1px solid rgba(124,252,0,.35);
+  font-size:11px;
+  font-weight:bold;
+}
+
+.hint{display:block;color:#FFD43B;margin:6px 0 10px;line-height:1.35;font-weight:bold}
